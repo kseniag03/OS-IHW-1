@@ -81,10 +81,8 @@ int main(int argc, char *argv[]) {
         printf("!!! Got buffer from input file !!!\n");
         printf("%s\n\n", buffer);
 
-
-
-
-        // Третий дочерний процесс записывает данные в выходной файл
+        
+        // Первый дочерний процесс записывает данные в выходной файл
         printf("WRITE Child process #1 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
         if (close(pipe_second[1]) < 0){

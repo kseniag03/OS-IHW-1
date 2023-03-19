@@ -12,7 +12,6 @@
 #define BUF_SIZE 5000
 
 int main(int argc, char *argv[]) {
-
     // Проверка, достаточно ли аргументов командной строки (имя входного и выходного файла)
     if (argc < 3) {
         printf("Error: not enough arguments. Please, enter input and output file names\n");
@@ -23,188 +22,160 @@ int main(int argc, char *argv[]) {
     char *input_file = argv[1];
     char *output_file = argv[2];
 
-    int fd[2];
-    int fd2[2];
-    pid_t pid1, pid2, pid3;
-    int status;
-
+    // Открываем файл с входными данными
     int in_fd = open(input_file, O_RDONLY);
     if (in_fd == -1) {
         perror("open");
         exit(1);
     }
 
+    // Открываем файл с выходными данными
     int out_fd = open(output_file,O_WRONLY | O_CREAT, 0666);
     if (out_fd == -1) {
         perror("open");
         exit(1);
     }
 
-    if (pipe(fd) == -1 || pipe(fd2) == -1) {
+    int pipe_first[2], pipe_second[2];
+
+    // Запускаем системный вызов неименованных каналов
+    if (pipe(pipe_first) == -1 || pipe(pipe_second) == -1) {
         perror("pipe");
         exit(1);
     }
 
-    pid1 = fork();
+    pid_t pid_first, pid_second, pid_third;
+    int status;
 
-    // fd[0] -- read, fd[1] -- write
-
-    if (pid1 == -1) {
+    // Запускаем три дочерних процесса
+    pid_first = fork();
+    if (pid_first == -1) {
         perror("fork");
         exit(1);
     }
-    else if (pid1 == 0) {
-        // First child process reads data from input file
+    else if (pid_first == 0) {
+        // Первый дочерний процесс считывает данные из входного файла
         printf("Child process #1 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
-        if (close(fd[0]) < 0){
+        // Закрываем неиспользуемую операцию чтения первого канала ([0] -- для чтения)
+        if (close(pipe_first[0]) < 0){
             perror("close");
             exit(1);
         }
 
-        // Read data from input file
-        char buf[BUF_SIZE];
-        ssize_t bytes_read = read(in_fd, buf, BUF_SIZE);
-        if (bytes_read == -1) {
+        // Читаем данные из входного файла
+        char buffer[BUF_SIZE];
+        ssize_t read_bytes = read(in_fd, buffer, BUF_SIZE);
+        if (read_bytes == -1) {
             perror("read");
             exit(1);
         }
-        buf[bytes_read] = '\0';
+        buffer[read_bytes] = '\0';
 
-        // Write data to first pipe
-        if (write(fd[1], buf, bytes_read) == -1) {
+        // Записываем полученные данные в pipe_first ([1] -- для записи)
+        if (write(pipe_first[1], buffer, read_bytes) == -1) {
             perror("write");
             exit(1);
         }
-/*
-        if (close(fd[1]) < 0){
-            perror("close");
-            exit(1);
-        }
-        if (close(in_fd) < 0){
-            perror("close");
-            exit(1);
-        }*/
 
-        printf("!!! Get buffer from input file 222 !!!\n");printf("%s\n\n", buf);
+        printf("!!! Got buffer from input file !!!\n");
+        printf("%s\n\n", buffer);
 
         exit(0);
     }
 
-    pid2 = fork();
-
-    if (pid2 == -1) {
+    pid_second = fork();
+    if (pid_second == -1) {
         perror("fork");
         exit(1);
     }
-    else if (pid2 == 0) {
-        // Second child process converts lowercase vowels to uppercase
+    else if (pid_second == 0) {
+        // Второй дочерний процесс заменяет все строчные гласные буквы в заданной ASCII-строке заглавными
         printf("Child process #2 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
-        if (close(fd[1]) < 0){
+        if (close(pipe_first[1]) < 0){
             perror("close");
             exit(1);
         }
-        if (close(fd2[0]) < 0){
+        if (close(pipe_second[0]) < 0){
             perror("close");
             exit(1);
         }
 
-        char buf[BUF_SIZE];
-        ssize_t bytes_read = read(fd[0], buf, BUF_SIZE);
-        if (bytes_read == -1) {
+        // Читаем данные из первого канала
+        char buffer[BUF_SIZE];
+        ssize_t read_bytes = read(pipe_first[0], buffer, BUF_SIZE);
+        if (read_bytes == -1) {
             perror("read");
             exit(EXIT_FAILURE);
         }
-        buf[bytes_read] = '\0';
+        buffer[read_bytes] = '\0';
 
-        // Convert lowercase vowels to uppercase
-        for (int i = 0; i < bytes_read; i++) {
-            if (buf[i] == 'a' || buf[i] == 'e' || buf[i] == 'i' || buf[i] == 'o' || buf[i] == 'u') {
-                buf[i] = buf[i] - 32; // convert to uppercase
+        // Меняем регистр гласных на заглавный
+        for (int i = 0; i < read_bytes; i++) {
+            if (buffer[i] == 'a' || buffer[i] == 'e' || buffer[i] == 'i' || buffer[i] == 'o' || buffer[i] == 'u') {
+                buffer[i] = buffer[i] - 32;
             }
         }
 
-        // Write processed data to second pipe
-        if (write(fd2[1], buf, bytes_read) == -1) {
+        // Передаем результат обработанных данных в pipe_second
+        if (write(pipe_second[1], buffer, read_bytes) == -1) {
             perror("write");
             exit(1);
         }
-/*
-        if (close(fd[0]) < 0){
-            perror("close");
-            exit(1);
-        }
-        if (close(fd2[1]) < 0){
-            perror("close");
-            exit(1);
-        }
-        if (close(out_fd) < 0){
-            perror("close");
-            exit(1);
-        }
-*/
-        printf("!!! Changed buffer !!!\n");printf("%s\n", buf);
+
+        printf("!!! Changed buffer !!!\n");
+        printf("%s\n", buffer);
 
         exit(0);
     }
 
-    pid3 = fork();
-
-    if (pid3 == -1) {
+    pid_third = fork();
+    if (pid_third == -1) {
         perror("fork");
         exit(1);
     }
-    else if (pid3 == 0) {
-        // Third child process writes data to output file
+    else if (pid_third == 0) {
+        // Третий дочерний процесс записывает данные в выходной файл
         printf("Child process #3 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
-        // Close unused write end of second pipe
-        if (close(fd2[1]) < 0){
+        if (close(pipe_second[1]) < 0){
             perror("close");
             exit(1);
         }
 
-        char buf[BUF_SIZE];
-        ssize_t bytes_read = read(fd2[0], buf, BUF_SIZE);
-        if (bytes_read == -1) {
+        // Читаем данные из второго канала
+        char buffer[BUF_SIZE];
+        ssize_t read_bytes = read(pipe_second[0], buffer, BUF_SIZE);
+        if (read_bytes == -1) {
             perror("read");
             exit(1);
         }
-        buf[bytes_read] = '\0';
+        buffer[read_bytes] = '\0';
 
-        // Write processed data to output file
-        if (write(out_fd, buf, bytes_read) == -1) {
+        // Записываем полученные данные в выходной файл
+        if (write(out_fd, buffer, read_bytes) == -1) {
             perror("write");
             exit(1);
         }
-/*
-        if (close(fd2[0]) < 0){
-            perror("close");
-            exit(1);
-        }
-        if (close(out_fd) < 0){
-            perror("close");
-            exit(1);
-        }
-*/
+
         exit(0);
     }
 
     // Процесс-родитель закрывает неименованные каналы и завершает работу с файлами
-    if (close(fd[0]) < 0){
+    if (close(pipe_first[0]) < 0){
         perror("close");
         exit(-1);
     }
-    if (close(fd[1]) < 0){
+    if (close(pipe_first[1]) < 0){
         perror("close");
         exit(-1);
     }
-    if (close(fd2[0]) < 0){
+    if (close(pipe_second[0]) < 0){
         perror("close");
         exit(-1);
     }
-    if (close(fd2[1]) < 0){
+    if (close(pipe_second[1]) < 0){
         perror("close");
         exit(-1);
     }
@@ -218,9 +189,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Ожидаем завершения дочерних процессов, чтобы родитель у всех был одинаковый
-    waitpid(pid1, &status, 0);
-    waitpid(pid2, &status, 0);
-    waitpid(pid3, &status, 0);
+    waitpid(pid_first, &status, 0);
+    waitpid(pid_second, &status, 0);
+    waitpid(pid_third, &status, 0);
 
     exit(0);
 }

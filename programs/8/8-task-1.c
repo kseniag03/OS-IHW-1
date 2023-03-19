@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     int fd_read;
     int fd_write;
     
-    // Первый дочерний процесс считывает данные из входного файла
+    // Первый процесс считывает данные из входного файла
     printf("READ process #1 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
     // Читаем данные из входного файла
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     printf("!!! Got buffer from input file !!!\n");
     printf("%s\n\n", buffer);
 
-    // Первый дочерний процесс записывает данные в выходной файл
+    // Первый процесс записывает данные в выходной файл
     printf("WRITE process #1 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
     // Открываем второй канал на чтение

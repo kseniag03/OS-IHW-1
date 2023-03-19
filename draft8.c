@@ -46,8 +46,6 @@ int main(int argc, char *argv[]) {
     int fd_read;
     int fd_write;
 
-
-
     // Первый дочерний процесс считывает данные из входного файла
     printf("READ process #1 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
@@ -131,41 +129,10 @@ int main(int argc, char *argv[]) {
 #define FIFO_FILE "/tmp/fifo"
 
 int main(int argc, char *argv[]) {
-    // Проверка, достаточно ли аргументов командной строки (имя входного и выходного файла)
-    if (argc < 3) {
-        printf("Error: not enough arguments. Please, enter input and output file names\n");
-        exit(1);
-    }
-
-    // Получаем имена входного и выходного файлов
-    char *input_file = argv[1];
-    char *output_file = argv[2];
-
-    // Открываем файл с входными данными
-    int in_fd = open(input_file, O_RDONLY);
-    if (in_fd == -1) {
-        perror("open input");
-        exit(1);
-    }
-
-    // Открываем файл с выходными данными
-    int out_fd = open(output_file,O_WRONLY | O_CREAT, 0666);
-    if (out_fd == -1) {
-        perror("open output");
-        exit(1);
-    }
-
-    // Создаем именованные каналы
-    if (mkfifo(FIFO_FILE, 0666) < 0) {
-        perror("mkfifo fifo");
-        exit(1);
-    }
 
     // Объявляем FIFOs для чтения и записи
     int fd_read;
     int fd_write;
-
-
 
     // Второй дочерний процесс заменяет все строчные гласные буквы в заданной ASCII-строке заглавными
     printf("PROCESS process #2 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());

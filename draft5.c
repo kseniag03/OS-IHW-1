@@ -28,46 +28,32 @@ int main(int argc, char *argv[]) {
     // Открываем файл с входными данными
     int in_fd = open(input_file, O_RDONLY);
     if (in_fd == -1) {
-        perror("open");
+        perror("open input");
         exit(1);
     }
 
     // Открываем файл с выходными данными
     int out_fd = open(output_file,O_WRONLY | O_CREAT, 0666);
     if (out_fd == -1) {
-        perror("open");
+        perror("open output");
         exit(1);
     }
 
-    // Создаем именованные каналы (FIFOs)
-    char *fifo_first = FIRST_FIFO_FILE;
-    char *fifo_second = SECOND_FIFO_FILE;
-
-    // Create the named pipe
+    // Создаем именованные каналы
     if (mkfifo(FIRST_FIFO_FILE, 0666) < 0) {
-        perror("Error creating named pipe");
+        perror("mkfifo first fifo");
         exit(1);
     }
-
-    // Create the named pipe
     if (mkfifo(SECOND_FIFO_FILE, 0666) < 0) {
-        perror("Error creating named pipe");
+        perror("mkfifo second fifo");
         exit(1);
     }
 
-    //mknod(fifo_first, S_IFIFO|0666, 0);
-    //mknod(fifo_second, S_IFIFO|0666, 0);
-
-    // Открываем FIFOs для чтения и записи
-    int fd_first_read; //= open(FIRST_FIFO_FILE, O_RDONLY);
-    int fd_first_write;// = open(FIRST_FIFO_FILE, O_WRONLY | O_NONBLOCK);
-    int fd_second_read;// = open(SECOND_FIFO_FILE, O_RDONLY);
-    int fd_second_write;// = open(SECOND_FIFO_FILE, O_WRONLY | O_NONBLOCK);
-/*
-    if (fd_first_read == -1 || fd_first_write == -1 || fd_second_read == -1 || fd_second_write == -1) {
-        perror("open");
-        exit(1);
-    }*/
+    // Объявляем FIFOs для чтения и записи
+    int fd_first_read;
+    int fd_first_write;
+    int fd_second_read;
+    int fd_second_write;
 
     pid_t pid_first, pid_second, pid_third;
     int status;
@@ -91,15 +77,23 @@ int main(int argc, char *argv[]) {
         }
         buffer[read_bytes] = '\0';
 
-        fd_first_write = open(FIRST_FIFO_FILE, O_WRONLY);
+        // Открываем первый канал на запись
+        if ((fd_first_write = open(FIRST_FIFO_FILE, O_WRONLY)) == -1) {
+            perror("open fifo_first_write");
+            exit(1);
+        }
 
-        // Записываем полученные данные в fifo_first
+        // Записываем полученные данные в fifo first
         if (write(fd_first_write, buffer, read_bytes) == -1) {
             perror("write");
             exit(1);
         }
 
-        close(fd_first_write);
+        // Закрываем канал
+        if (close(fd_first_write) < 0){
+            perror("close");
+            exit(1);
+        }
 
         printf("!!! Got buffer from input file !!!\n");
         printf("%s\n\n", buffer);
@@ -115,14 +109,12 @@ int main(int argc, char *argv[]) {
     else if (pid_second == 0) {
         // Второй дочерний процесс заменяет все строчные гласные буквы в заданной ASCII-строке заглавными
         printf("Child process #2 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
-/*
-        // Закрываем неиспользуемые концы именованных каналов
-        if (close(fd_first_write) < 0 || close(fd_second_read) < 0) {
-            perror("close");
-            exit(1);
-        }*/
 
-        fd_first_read = open(FIRST_FIFO_FILE, O_RDONLY);
+        // Открываем первый канал на чтение
+        if ((fd_first_read = open(FIRST_FIFO_FILE, O_RDONLY)) == -1) {
+            perror("open fifo_first_read");
+            exit(1);
+        }
 
         // Читаем данные из первого канала
         char buffer[BUF_SIZE];
@@ -133,7 +125,10 @@ int main(int argc, char *argv[]) {
         }
         buffer[read_bytes] = '\0';
 
-        close(fd_first_read);
+        if (close(fd_first_read) < 0) {
+            perror("close fifo_first_read");
+            exit(1);
+        }
 
         // Меняем регистр гласных на заглавный
         for (int i = 0; i < read_bytes; i++) {
@@ -142,15 +137,22 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        fd_second_write = open(SECOND_FIFO_FILE, O_WRONLY);
+        // Открываем второй канал на запись
+        if ((fd_second_write = open(SECOND_FIFO_FILE, O_WRONLY)) == -1) {
+            perror("open fifo_second_write");
+            exit(1);
+        }
 
-        // Передаем результат обработанных данных во второй FIFO
+        // Передаем результат обработанных данных во второй канал
         if (write(fd_second_write, buffer, read_bytes) == -1) {
             perror("write");
             exit(1);
         }
 
-        close(fd_second_write);
+        if (close(fd_second_write) < 0) {
+            perror("close fifo_second_write");
+            exit(1);
+        }
 
         printf("!!! Changed buffer !!!\n");
         printf("%s\n", buffer);
@@ -166,13 +168,12 @@ int main(int argc, char *argv[]) {
     else if (pid_third == 0) {
         // Третий дочерний процесс записывает данные в выходной файл
         printf("Child process #3 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
-/*
-        if (close(fd_second_write) < 0){
-            perror("close");
-            exit(1);
-        }*/
 
-        fd_second_read = open(SECOND_FIFO_FILE, O_RDONLY);
+        // Открываем второй канал на чтение
+        if ((fd_second_read = open(SECOND_FIFO_FILE, O_RDONLY)) == -1) {
+            perror("open fifo_second_read");
+            exit(1);
+        }
 
         // Читаем данные из второго канала
         char buffer[BUF_SIZE];
@@ -183,7 +184,10 @@ int main(int argc, char *argv[]) {
         }
         buffer[read_bytes] = '\0';
 
-        close(fd_second_read);
+        if (close(fd_second_read) < 0) {
+            perror("close fifo_second_read");
+            exit(1);
+        }
 
         // Записываем полученные данные в выходной файл
         if (write(out_fd, buffer, read_bytes) == -1) {
@@ -194,40 +198,48 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    // Процесс-родитель закрывает неименованные каналы и завершает работу с файлами
+    // Процесс-родитель закрывает именованные каналы и завершает работу с файлами
 
     if (close(fd_first_read) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
     if (close(fd_first_write) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
     if (close(fd_second_read) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
     if (close(fd_second_write) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
 
     if (close(in_fd) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
     if (close(out_fd) < 0){
         perror("close");
-        exit(-1);
+        exit(1);
     }
-    unlink(FIRST_FIFO_FILE);
-    unlink(SECOND_FIFO_FILE);
 
     // Ожидаем завершения дочерних процессов, чтобы родитель у всех был одинаковый
     waitpid(pid_first, &status, 0);
     waitpid(pid_second, &status, 0);
     waitpid(pid_third, &status, 0);
+
+    // Удаляем именованные каналы
+    if (unlink(FIRST_FIFO_FILE) == -1) {
+        perror("Error deleting named pipe");
+        exit(1);
+    }
+    if (unlink(SECOND_FIFO_FILE) == -1) {
+        perror("Error deleting named pipe");
+        exit(1);
+    }
 
     exit(0);
 }

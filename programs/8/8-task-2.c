@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     int fd_read;
     int fd_write;
 
-    // Второй дочерний процесс заменяет все строчные гласные буквы в заданной ASCII-строке заглавными
+    // Второй процесс заменяет все строчные гласные буквы в заданной ASCII-строке заглавными
     printf("PROCESS process #2 with id: %d with parent id: %d\n", (int)getpid(), (int)getppid());
 
     // Открываем первый канал на чтение

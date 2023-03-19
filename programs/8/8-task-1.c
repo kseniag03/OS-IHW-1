@@ -109,6 +109,15 @@ int main(int argc, char *argv[]) {
         perror("write");
         exit(1);
     }
+    
+    if (close(in_fd) < 0){
+        perror("close");
+        exit(1);
+    }
+    if (close(out_fd) < 0){
+        perror("close");
+        exit(1);
+    }
 
     // Удаляем именованный канал
     unlink(FIFO_FILE);
